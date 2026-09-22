@@ -36,4 +36,15 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body,HttpStatus.BAD_REQUEST);
 
     }
+    @ExceptionHandler(StockInsuficienteException.class)
+    public ResponseEntity<?> manejarStockInsuficiente(StockInsuficienteException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(EstadoVentaInvalidoException.class)
+    public ResponseEntity<?> manejarEstadoVentaInvalido(EstadoVentaInvalidoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", ex.getMessage()));
+    }
 }
