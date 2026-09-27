@@ -1,28 +1,33 @@
 [README.md](https://github.com/user-attachments/files/32398803/README.md)
 # Ventas MCP Server
 
-Backend en Spring Boot para la automatización del flujo de ventas y validación de stock en tiempo real de una tienda de electrónica, integrado vía Telegram con NLP e IA local a través del **Model Context Protocol (MCP)**.
+Backend en Spring Boot para la automatización del flujo de ventas y validación de stock en tiempo real de una tienda de electrónica, con atención a clientes vía **bot de Telegram** integrado en el propio backend.
 
 ## Descripción del proyecto
 
-Este backend es el núcleo de negocio y persistencia de datos del sistema. Expone:
+Este backend es un **monolito modular**: el núcleo de negocio, la persistencia y el canal de Telegram viven en una sola aplicación. Expone:
 
 - Una **API REST tradicional** para consultar productos y registrar ventas.
-- Un **servidor MCP** (vía Spring AI MCP) que expone esas mismas capacidades como *tools* consumibles por una IA local, que actúa como cliente MCP desde un proceso Python separado (bot de Telegram + NLP + IA).
+- Un **bot de Telegram** (módulo `chatbot`) que recibe los mensajes de los clientes por long polling o webhook, guarda todo el historial (incluidas las notas de voz) y responde. En esta iteración la respuesta es genérica (`mensaje recibido`); el NLP/IA se conectará más adelante a través de un punto de extensión.
 
-### Flujo general
+### Arquitectura
 
 ```
-Telegram → Bot (Python) → NLP (Python) → IA local (cliente MCP)
-                                                │
-                                      llama tools vía MCP
-                                                │
-                                                ▼
-                              Backend Spring Boot (servidor MCP)
-                              ├── Endpoints REST tradicionales
-                              ├── Lógica de negocio y validaciones
-                              └── JPA → PostgreSQL
+Telegram  --(long polling | webhook POST /telegram/webhook)-->  Backend Spring Boot
+                                                                 |
+   +-------------------------------------------------------------+
+   |
+   +-- chatbot/            recepción de updates, historial de mensajes, respuesta
+   |     telegram/         adaptadores de polling y webhook (TelegramBots 10.x)
+   +-- cliente/            clientes identificados por su usuario de Telegram
+   +-- producto/  venta/   catálogo, stock y ventas (API REST)
+   +-- common/
+         almacenamiento/   archivos binarios (notas de voz) en disco local
+                                                                 |
+                                                   JPA --> PostgreSQL
 ```
+
+Los módulos colaboran a través de sus *services* y DTOs; un módulo no usa directamente las entidades ni los repositorios de otro.
 
 Cuando se registra una venta, el backend notifica al dueño de la tienda mediante una notificación push para que confirme el pago y complete la venta.
 
@@ -40,18 +45,16 @@ Cuando se registra una venta, el backend notifica al dueño de la tienda mediant
 | **Spring Boot DevTools** | Recarga en caliente durante el desarrollo |
 | **Lombok** | Reducción de código repetitivo en las entidades (getters, setters, constructores) |
 | **Spring Boot Actuator** | Endpoints de salud (`/actuator/health`) para monitoreo |
-| **Spring AI MCP Server** | Exposición del backend como servidor MCP para la IA local (se agrega manualmente al `pom.xml`) |
+| **TelegramBots 10.x** (`telegrambots-client`, `telegrambots-longpolling`) | Integración con la Telegram Bot API (librería oficial, sin sus starters) |
 
 ## Modelo de datos
 
-El backend gestiona 8 tablas principales:
-
 | Tabla | Propósito |
 |---|---|
-| `cliente` | Persona que interactúa con el bot de Telegram |
+| `cliente` | Persona que interactúa con el bot de Telegram (identificada por su `telegram_user_id`) |
+| `mensaje` | Cada mensaje de un chat privado con el bot, entrante o saliente: tipo (`TEXTO`, `VOZ`, `NO_SOPORTADO`), texto/caption y timestamps (dataset para el futuro NLP) |
+| `adjunto` | Nota de voz asociada a un mensaje: metadatos de Telegram, clave en el almacenamiento y estado (`PENDIENTE`, `OK`, `ERROR`) |
 | `usuario` | Dueño/vendedor que recibe notificaciones y confirma pagos |
-| `conversacion` | Sesión de chat entre un cliente y el bot |
-| `mensaje` | Cada mensaje individual dentro de una conversación (usado también como dataset para entrenar el NLP) |
 | `producto` | Catálogo de productos con precio y stock |
 | `venta` | Registro de una venta (pendiente, completada, cancelada) |
 | `detalle_venta` | Productos y cantidades incluidos en cada venta |
@@ -76,6 +79,28 @@ spring.jpa.show-sql=true
 ```
 
 > Asegúrate de tener PostgreSQL activo antes de arrancar la app; si no encuentra la base de datos configurada, el arranque fallará.
+
+Toma como base `src/main/resources/application.properties.example`.
+
+### Bot de Telegram
+
+El bot está **deshabilitado por defecto**. Un token de bot admite un solo consumidor a la vez, así que usa un bot distinto por entorno (desarrollo / producción) y habilítalo solo donde corresponda:
+
+```properties
+telegram.bot.habilitado=true
+telegram.bot.token=${TELEGRAM_BOT_TOKEN:}
+telegram.bot.modo=POLLING          # o WEBHOOK
+telegram.bot.webhook.url=https://tu-dominio-publico/telegram/webhook
+telegram.bot.webhook.secret=${TELEGRAM_WEBHOOK_SECRET:}
+almacenamiento.local.directorio=./data/archivos
+```
+
+- El token y el secret se leen de las variables de entorno `TELEGRAM_BOT_TOKEN` y `TELEGRAM_WEBHOOK_SECRET`; no los escribas en archivos versionados.
+- **POLLING**: no necesita URL pública; es lo recomendado para desarrollo. Al arrancar elimina cualquier webhook registrado.
+- **WEBHOOK**: Telegram envía los updates a `POST /telegram/webhook`, que exige el header `X-Telegram-Bot-Api-Secret-Token`. Requiere una URL **HTTPS pública**; en desarrollo puedes exponer el puerto local con un túnel (por ejemplo `ngrok http 8080`) y usar esa URL en `telegram.bot.webhook.url`.
+- Si falta el token (o, en modo webhook, la URL o el secret), la aplicación no arranca e indica qué propiedad falta.
+- Las notas de voz se guardan bajo `almacenamiento.local.directorio` (ignorado por git en `/data/`).
+- Por ahora el bot procesa solo **chats privados**: texto y notas de voz. Fotos, documentos, stickers, etc. se registran como `NO_SOPORTADO` sin descargar el archivo; grupos y mensajes editados se ignoran.
 
 ## Cómo correrlo
 
@@ -107,9 +132,10 @@ Debería responder `{"status":"UP"}`.
 
 🚧 En desarrollo — próximos pasos:
 
-- [ ] Definir entidades JPA para las 8 tablas
-- [ ] Implementar endpoints REST de Producto y Venta
-- [ ] Configurar el servidor MCP con Spring AI MCP
+- [x] Implementar endpoints REST de Producto y Venta
+- [x] Bot de Telegram integrado: recepción (polling/webhook), historial de mensajes y notas de voz
+- [ ] Respuestas del bot con NLP/IA (reemplazando la respuesta genérica)
+- [ ] Evaluar si el servidor MCP sigue siendo necesario con la IA dentro del backend
 - [ ] Implementar validación de stock antes de registrar una venta
 - [ ] Implementar sistema de notificaciones push al dueño
 - [ ] (Futuro) Validación de stock en tiempo real y alertas automáticas
