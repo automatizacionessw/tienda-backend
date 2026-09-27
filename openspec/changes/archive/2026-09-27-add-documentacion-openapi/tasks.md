@@ -27,4 +27,4 @@
 
 - [x] 5.1 Actualizar el README: agregar springdoc-openapi a "Tecnologías y dependencias" y una subsección en "Configuración" que explique cómo activar la documentación, las URLs (`/swagger-ui.html`, `/v3/api-docs`) y la recomendación de dejarla en `false` y declarada explícitamente en producción. Verificar revisando el render del Markdown
 - [x] 5.2 Ejecutar `./mvnw test` completo y verificar que pasan todos los tests, nuevos y existentes
-- [ ] 5.3 Verificación manual con la documentación habilitada: abrir `/swagger-ui.html`, crear un producto, crear una venta con ese producto y confirmarla desde la UI. Comprobar que las respuestas (incluido un 404 con un id inexistente) tienen exactamente el mismo formato que antes del cambio
+- [x] 5.3 Verificación manual con la documentación habilitada: abrir `/swagger-ui.html`, crear un producto, crear una venta con ese producto y confirmarla desde la UI. Comprobar que las respuestas (incluido un 404 con un id inexistente) tienen exactamente el mismo formato que antes del cambio
