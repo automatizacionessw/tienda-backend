@@ -9,8 +9,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-// Con el bot deshabilitado (default) no hay endpoint ni se requiere token.
-@WebMvcTest(controllers = TelegramWebhookController.class, properties = "telegram.bot.modo=WEBHOOK")
+// Con el bot deshabilitado no hay endpoint ni se requiere token. Se fija
+// explicitamente para no depender del application.properties local.
+@WebMvcTest(controllers = TelegramWebhookController.class, properties = {
+        "telegram.bot.habilitado=false",
+        "telegram.bot.modo=WEBHOOK"})
 class TelegramWebhookDeshabilitadoTest {
 
     @Autowired
