@@ -1,6 +1,7 @@
 package com.tiendabackend.tiendabackend.chatbot.telegram;
 
 import com.tiendabackend.tiendabackend.chatbot.ChatbotService;
+import io.swagger.v3.oas.annotations.Hidden;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import org.slf4j.Logger;
@@ -18,6 +19,8 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 @RestController
 @RequestMapping("/telegram")
 @ConditionalOnExpression(CondicionesTelegram.MODO_WEBHOOK)
+// Lo invoca Telegram con un header secreto, no una persona: fuera de OpenAPI.
+@Hidden
 public class TelegramWebhookController {
 
     static final String HEADER_SECRET = "X-Telegram-Bot-Api-Secret-Token";

@@ -1,5 +1,6 @@
 package com.tiendabackend.tiendabackend.venta;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -9,11 +10,14 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "Línea de una venta. El precio unitario lo toma el servidor del precio actual del producto")
 public class DetalleRequestDTO {
 
+    @Schema(description = "Identificador de un producto activo", example = "1")
     @NotNull(message = "El id del producto es obligatorio")
     private Long productoId;
 
+    @Schema(description = "Unidades a vender; se reservan del stock al crear la venta", example = "2")
     @NotNull(message = "La cantidad es obligatoria")
     @Min(value = 1, message = "La cantidad debe ser al menos 1")
     private Integer cantidad;
