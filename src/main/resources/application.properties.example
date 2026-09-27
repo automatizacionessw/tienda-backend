@@ -25,3 +25,11 @@ telegram.bot.webhook.secret=${TELEGRAM_WEBHOOK_SECRET:}
 
 # Almacenamiento de archivos (notas de voz del bot)
 almacenamiento.local.directorio=./data/archivos
+
+# Documentacion de la API (OpenAPI / Swagger UI)
+# api-docs publica la especificacion en /v3/api-docs y swagger-ui la interfaz
+# de pruebas en /swagger-ui.html. Deben ir juntas y con el mismo valor: sin la
+# especificacion la interfaz carga vacia. Si la propiedad no se declara,
+# springdoc la considera habilitada, asi que en produccion se declaran en false.
+springdoc.api-docs.enabled=false
+springdoc.swagger-ui.enabled=false
