@@ -11,6 +11,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+// Las formas de estas respuestas estan documentadas en OpenAPI mediante los
+// records de common/openapi (ErrorRecursoNoEncontrado, ErrorValidacion,
+// ErrorSimple). Si cambia algun cuerpo, actualizarlos tambien.
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
