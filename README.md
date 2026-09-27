@@ -46,6 +46,7 @@ Cuando se registra una venta, el backend notifica al dueño de la tienda mediant
 | **Lombok** | Reducción de código repetitivo en las entidades (getters, setters, constructores) |
 | **Spring Boot Actuator** | Endpoints de salud (`/actuator/health`) para monitoreo |
 | **TelegramBots 10.x** (`telegrambots-client`, `telegrambots-longpolling`) | Integración con la Telegram Bot API (librería oficial, sin sus starters) |
+| **springdoc-openapi 3.x** (`springdoc-openapi-starter-webmvc-ui`) | Especificación OpenAPI generada desde el código e interfaz Swagger UI para probar los endpoints |
 
 ## Modelo de datos
 
@@ -101,6 +102,20 @@ almacenamiento.local.directorio=./data/archivos
 - Si falta el token (o, en modo webhook, la URL o el secret), la aplicación no arranca e indica qué propiedad falta.
 - Las notas de voz se guardan bajo `almacenamiento.local.directorio` (ignorado por git en `/data/`).
 - Por ahora el bot procesa solo **chats privados**: texto y notas de voz. Fotos, documentos, stickers, etc. se registran como `NO_SOPORTADO` sin descargar el archivo; grupos y mensajes editados se ignoran.
+
+### Documentación de la API (OpenAPI / Swagger UI)
+
+La especificación OpenAPI y la interfaz Swagger UI se activan o desactivan con dos propiedades, que deben tener **el mismo valor**:
+
+```properties
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.enabled=true
+```
+
+- `GET /v3/api-docs`: especificación OpenAPI 3 en JSON (productos y ventas; el webhook de Telegram no se documenta).
+- `/swagger-ui.html`: interfaz para explorar y probar los endpoints desde el navegador (por ejemplo `http://localhost:8080/swagger-ui.html`).
+- Con ambas en `false`, las dos rutas responden 404. Si solo se apaga `api-docs`, la interfaz carga pero queda vacía.
+- **Si las propiedades no están declaradas, springdoc las considera habilitadas.** La API no tiene autenticación, así que en producción decláralas explícitamente en `false`.
 
 ## Cómo correrlo
 
