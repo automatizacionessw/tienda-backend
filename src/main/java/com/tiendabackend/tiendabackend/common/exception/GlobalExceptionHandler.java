@@ -50,4 +50,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("error", ex.getMessage()));
     }
+
+    @ExceptionHandler(SolicitudInvalidaException.class)
+    public ResponseEntity<?> manejarSolicitudInvalida(SolicitudInvalidaException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(EstadoConversacionInvalidoException.class)
+    public ResponseEntity<?> manejarEstadoConversacionInvalido(EstadoConversacionInvalidoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", ex.getMessage()));
+    }
 }
