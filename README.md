@@ -69,34 +69,69 @@ Cuando se registra una venta, el backend notifica al dueño de la tienda mediant
 
 ## Configuración
 
-Antes de levantar la aplicación, configura la conexión a la base de datos en `src/main/resources/application.properties`:
+La configuración se resuelve en tres capas. Cada una tiene prioridad sobre la anterior:
+
+| Capa | Archivo / fuente | Versionado | Para qué |
+|---|---|---|---|
+| 1. Base | `src/main/resources/application.properties` | Sí | Todas las propiedades, con placeholders `${VARIABLE:default}` y valores por defecto seguros (sin credenciales, bot deshabilitado, Swagger apagado) |
+| 2. Override local | `src/main/resources/application-local.properties` | **No** (ignorado) | Los ajustes de cada desarrollador: su base de datos, Swagger, bot de pruebas… |
+| 3. Entorno | Variables de entorno (`docker/.env` en el despliegue) | No | La configuración de cada servidor; ver [docker/README.md](docker/README.md) |
+
+**Decisión:** `application.properties` vuelve a estar versionado para tener una base compartida que se despliega sin cambios. Los secretos nunca se escriben ahí: en el servidor llegan por variables de entorno y en desarrollo por el override local. El override se carga automáticamente con `spring.config.import=optional:classpath:application-local.properties`, sin activar perfiles, así que `./mvnw spring-boot:run`, los tests y el IDE lo usan sin pasos extra. Si el archivo no existe, simplemente se ignora.
+
+### Configuración para desarrollo
+
+Crea tu override a partir del ejemplo y completa tus datos:
+
+```bash
+cp src/main/resources/application-local.properties.example src/main/resources/application-local.properties
+```
 
 ```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/nombre_de_tu_bd
 spring.datasource.username=tu_usuario
 spring.datasource.password=tu_password
-spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.enabled=true
 ```
 
-> Asegúrate de tener PostgreSQL activo antes de arrancar la app; si no encuentra la base de datos configurada, el arranque fallará.
+> Asegúrate de tener PostgreSQL activo antes de arrancar la app; si no encuentra la base de datos configurada, el arranque fallará. Los tests (`contextLoads`) también usan esta base de datos.
 
-Toma como base `src/main/resources/application.properties.example`.
+> **Migración (si ya tenías el proyecto):** antes de hacer `git pull`, renombra tu `src/main/resources/application.properties` local a `application-local.properties`. Si no lo haces, git se niega a traer el archivo versionado, o tus credenciales pueden terminar en un commit.
+
+Solo declara en el override lo que quieras cambiar. Ten en cuenta que un valor literal en el override reemplaza al placeholder, así que la variable corta equivalente (`DB_URL`, `API_DOCS_ENABLED`…) deja de tener efecto en tu máquina.
+
+### Variables de entorno
+
+| Variable | Propiedad | Default |
+|---|---|---|
+| `DB_URL` | `spring.datasource.url` | `jdbc:postgresql://localhost:5432/tienda_db` |
+| `DB_USERNAME` | `spring.datasource.username` | `postgres` |
+| `DB_PASSWORD` | `spring.datasource.password` | *(vacío)* |
+| `JPA_DDL_AUTO` | `spring.jpa.hibernate.ddl-auto` | `update` |
+| `JPA_SHOW_SQL` | `spring.jpa.show-sql` | `false` |
+| `TELEGRAM_BOT_ENABLED` | `telegram.bot.habilitado` | `false` |
+| `TELEGRAM_BOT_TOKEN` | `telegram.bot.token` | *(vacío)* |
+| `TELEGRAM_BOT_MODE` | `telegram.bot.modo` | `POLLING` |
+| `TELEGRAM_WEBHOOK_URL` | `telegram.bot.webhook.url` | *(vacío)* |
+| `TELEGRAM_WEBHOOK_SECRET` | `telegram.bot.webhook.secret` | *(vacío)* |
+| `STORAGE_DIR` | `almacenamiento.local.directorio` | `./data/archivos` |
+| `API_DOCS_ENABLED` | `springdoc.api-docs.enabled` y `springdoc.swagger-ui.enabled` | `false` |
 
 ### Bot de Telegram
 
-El bot está **deshabilitado por defecto**. Un token de bot admite un solo consumidor a la vez, así que usa un bot distinto por entorno (desarrollo / producción) y habilítalo solo donde corresponda:
+El bot está **deshabilitado por defecto**. Un token de bot admite un solo consumidor a la vez, así que usa un bot distinto por entorno (desarrollo / producción) y habilítalo solo donde corresponda. En desarrollo, en tu `application-local.properties`:
 
 ```properties
 telegram.bot.habilitado=true
-telegram.bot.token=${TELEGRAM_BOT_TOKEN:}
+telegram.bot.token=<token-de-tu-bot-de-pruebas>
 telegram.bot.modo=POLLING          # o WEBHOOK
 telegram.bot.webhook.url=https://tu-dominio-publico/telegram/webhook
-telegram.bot.webhook.secret=${TELEGRAM_WEBHOOK_SECRET:}
-almacenamiento.local.directorio=./data/archivos
+telegram.bot.webhook.secret=<secret>
 ```
 
-- El token y el secret se leen de las variables de entorno `TELEGRAM_BOT_TOKEN` y `TELEGRAM_WEBHOOK_SECRET`; no los escribas en archivos versionados.
+- En el servidor se configuran con las variables `TELEGRAM_*` de la tabla anterior. Nunca escribas el token ni el secret en archivos versionados.
 - **POLLING**: no necesita URL pública; es lo recomendado para desarrollo. Al arrancar elimina cualquier webhook registrado.
 - **WEBHOOK**: Telegram envía los updates a `POST /telegram/webhook`, que exige el header `X-Telegram-Bot-Api-Secret-Token`. Requiere una URL **HTTPS pública**; en desarrollo puedes exponer el puerto local con un túnel (por ejemplo `ngrok http 8080`) y usar esa URL en `telegram.bot.webhook.url`.
 - Si falta el token (o, en modo webhook, la URL o el secret), la aplicación no arranca e indica qué propiedad falta.
@@ -105,7 +140,7 @@ almacenamiento.local.directorio=./data/archivos
 
 ### Documentación de la API (OpenAPI / Swagger UI)
 
-La especificación OpenAPI y la interfaz Swagger UI se activan o desactivan con dos propiedades, que deben tener **el mismo valor**:
+La especificación OpenAPI y la interfaz Swagger UI están **apagadas por defecto**. Se activan con dos propiedades que deben tener **el mismo valor**: en el servidor, con la variable `API_DOCS_ENABLED=true` (controla las dos); en desarrollo, en tu override local:
 
 ```properties
 springdoc.api-docs.enabled=true
@@ -115,7 +150,7 @@ springdoc.swagger-ui.enabled=true
 - `GET /v3/api-docs`: especificación OpenAPI 3 en JSON (productos y ventas; el webhook de Telegram no se documenta).
 - `/swagger-ui.html`: interfaz para explorar y probar los endpoints desde el navegador (por ejemplo `http://localhost:8080/swagger-ui.html`).
 - Con ambas en `false`, las dos rutas responden 404. Si solo se apaga `api-docs`, la interfaz carga pero queda vacía.
-- **Si las propiedades no están declaradas, springdoc las considera habilitadas.** La API no tiene autenticación, así que en producción decláralas explícitamente en `false`.
+- Por defecto quedan en `false` en `application.properties`. La API no tiene autenticación, así que no las actives en producción salvo que sea necesario.
 
 ## Cómo correrlo
 
@@ -142,6 +177,10 @@ GET http://localhost:8080/actuator/health
 ```
 
 Debería responder `{"status":"UP"}`.
+
+## Despliegue con Docker
+
+El backend se despliega junto a su PostgreSQL con Docker Compose en un servidor con **Dokploy**. Todo lo relacionado con Docker vive en la carpeta [`docker/`](docker/): `Dockerfile`, `docker-compose.yml` y la plantilla de variables `.env.example`. La guía paso a paso está en [docker/README.md](docker/README.md).
 
 ## Estado del proyecto
 
