@@ -1,10 +1,6 @@
-# despliegue-docker Specification
+# Spec Delta
 
-## Purpose
-
-Permite construir el backend como imagen Docker y desplegarlo junto a su base de datos PostgreSQL y una instancia de n8n con Docker Compose en un servidor gestionado por Dokploy, configurado mediante variables de entorno. Agrupa también el compose del entorno local.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Artefactos de despliegue agrupados
 Todos los archivos de Docker MUST estar en la carpeta `docker/` de la raíz del repositorio:
@@ -18,14 +14,6 @@ Todos los archivos de Docker MUST estar en la carpeta `docker/` de la raíz del 
 - **THEN** contiene el Dockerfile, sus reglas de exclusión, `docker-compose.yml`, `.env.example` y la guía
 - **AND** `docker/local/` contiene `docker-compose.yml` y `.env.example`
 - **AND** no hay archivos de Docker fuera de esa carpeta
-
-### Requirement: Imagen Docker del backend
-El repositorio MUST permitir construir una imagen ejecutable del backend con Java 17 sin tener Maven ni JDK instalados en el host. La imagen MUST NOT contener `application-local.properties`, archivos `.env`, el directorio `data/` ni artefactos de `target/` del host.
-
-#### Scenario: Construcción de la imagen
-- **WHEN** se construye la imagen desde la raíz del repositorio con el Dockerfile de `docker/`
-- **THEN** la construcción termina correctamente en un host que solo tiene Docker
-- **AND** la imagen resultante no contiene `application-local.properties`, aunque exista en el árbol de trabajo
 
 ### Requirement: Orquestación con Docker Compose
 `docker/docker-compose.yml` MUST definir un servicio de PostgreSQL, un servicio del backend y un servicio de n8n.
