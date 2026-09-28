@@ -38,6 +38,7 @@ services:
       TELEGRAM_BOT_MODE: ${TELEGRAM_BOT_MODE:-POLLING}
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      CONVERSACION_INACTIVIDAD: ${CONVERSACION_INACTIVIDAD:-2h}
       API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
     # Sin "ports": el dominio se asigna en Dokploy y Traefik enruta a backend:8080.
     expose:

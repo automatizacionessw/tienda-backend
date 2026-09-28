@@ -26,3 +26,6 @@ springdoc.swagger-ui.enabled=true
 #telegram.bot.habilitado=true
 #telegram.bot.token=
 #telegram.bot.modo=POLLING
+
+# Conversaciones: acortar la inactividad para probar el cierre a mano
+#conversacion.inactividad=1m

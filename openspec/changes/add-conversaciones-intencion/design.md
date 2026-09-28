@@ -94,7 +94,7 @@ estado efectivo (consultas):
   `sinClasificar=true` se traduce en `NOT EXISTS` sobre las intenciones.
 - **Solo el ingreso persiste el cierre por inactividad.** Las lecturas no escriben. Cuando un endpoint de escritura recibe una conversación vencida, responde 409 sin cerrarla, porque la excepción revierte la transacción de todos modos.
 - `fechaUltimoMensaje` se actualiza con `max(actual, fechaTelegram)` en cada mensaje entrante y en cada saliente de una conversación `ABIERTA`. Tomar el máximo cubre las reentregas atrasadas.
-- `ConversacionProperties` (`@ConfigurationProperties("conversacion")`, `@Validated`) define `inactividad` como `Duration`, con valor por defecto `2h` y validación de positivo.
+- `ConversacionProperties` (`@ConfigurationProperties("conversacion")`, `@Validated`) define `inactividad` como `Duration`, con valor por defecto `2h` y validación de positivo. Siguiendo la estrategia de `configuracion-entorno`, `application.properties` la declara como `conversacion.inactividad=${CONVERSACION_INACTIVIDAD:2h}`. La variable se agrega a `docker-compose.yml` y a `docker/.env.example`, y en desarrollo se puede sobrescribir en `application-local.properties` (por ejemplo `1m` para probar a mano).
 - Un bean `Clock` (`Clock.systemUTC()`) se inyecta en `ConversacionService` para que los tests controlen el tiempo sin esperar.
 
 Descartado: el scheduler solo, o el scheduler más la evaluación al usarla. El ingreso tiene que evaluar la vigencia igual, porque entre dos corridas del job queda un hueco, y con la regla aplicada en las consultas el job no aporta nada observable. Queda como Non-Goal.

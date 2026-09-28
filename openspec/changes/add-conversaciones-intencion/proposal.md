@@ -43,6 +43,7 @@ El bot responde hoy a todo con un texto genérico, y el LLM que se conectará de
 ### Modified Capabilities
 - `historial-mensajes`: los mensajes entrantes y salientes se persisten asociados a una conversación.
 - `documentacion-api`: la especificación OpenAPI incluye también las operaciones de `/api/conversaciones` y su grupo.
+- `configuracion-entorno`: el tiempo de inactividad de las conversaciones se suma a las propiedades que se pueden definir por variable de entorno.
 
 ## Impact
 
@@ -54,5 +55,5 @@ El bot responde hoy a todo con un texto genérico, y el LLM que se conectará de
   - `common/openapi` (grupo nuevo).
 - **Base de datos**: tablas nuevas `conversacion` y `conversacion_intencion`, y columna obligatoria `mensaje.conversacion_id`, generadas por Hibernate (`ddl-auto=update`). Antes de desplegar hay que vaciar `adjunto` y `mensaje` y borrar los audios guardados.
 - **API HTTP**: endpoints nuevos bajo `/api/conversaciones`. Están disponibles aunque el bot de Telegram esté deshabilitado.
-- **Configuración**: propiedad nueva para el tiempo de inactividad (por defecto 2 horas) en `application.properties.example`.
+- **Configuración**: propiedad nueva `conversacion.inactividad` (por defecto 2 horas) en `application.properties`, que se puede definir con la variable de entorno `CONVERSACION_INACTIVIDAD`. También se agrega a `docker/docker-compose.yml`, `docker/.env.example` y `application-local.properties.example`.
 - **Documentación**: README (modelo de datos, paso de despliegue).

@@ -59,7 +59,12 @@
 
 ## 5. Configuración, documentación y verificación integral
 
-- [ ] 5.1 Agregar `conversacion.inactividad=2h` con un comentario a `application.properties.example`, y verificar que la aplicación arranca con el ejemplo copiado
+- [ ] 5.1 Siguiendo la estrategia de `configuracion-entorno`:
+  - agregar `conversacion.inactividad=${CONVERSACION_INACTIVIDAD:2h}` a `application.properties`;
+  - agregar un override comentado (`1m`) a `application-local.properties.example`;
+  - agregar `CONVERSACION_INACTIVIDAD` a `docker/docker-compose.yml`, a `docker/.env.example` y a la tabla de variables del README.
+
+  Verificar que la aplicación arranca sin la variable (usa 2h) y que con `CONVERSACION_INACTIVIDAD=1m` la conversación vence al minuto
 - [x] 5.2 Actualizar el README:
   - modelo de datos: tablas `conversacion` y `conversacion_intencion`, y `mensaje.conversacion_id`;
   - descripción del ciclo de vida y del estado efectivo, incluido que una fila `ABIERTA` en la base puede estar vencida;

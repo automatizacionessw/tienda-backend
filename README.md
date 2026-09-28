@@ -119,6 +119,7 @@ Solo declara en el override lo que quieras cambiar. Ten en cuenta que un valor l
 | `TELEGRAM_WEBHOOK_URL` | `telegram.bot.webhook.url` | *(vacío)* |
 | `TELEGRAM_WEBHOOK_SECRET` | `telegram.bot.webhook.secret` | *(vacío)* |
 | `STORAGE_DIR` | `almacenamiento.local.directorio` | `./data/archivos` |
+| `CONVERSACION_INACTIVIDAD` | `conversacion.inactividad` | `2h` |
 | `API_DOCS_ENABLED` | `springdoc.api-docs.enabled` y `springdoc.swagger-ui.enabled` | `false` |
 
 ### Bot de Telegram
@@ -145,7 +146,7 @@ telegram.bot.webhook.secret=<secret>
 Los mensajes de cada cliente se agrupan en **conversaciones**, que se clasifican con **intenciones** para que el LLM (a futuro) solo actúe con contexto y con las herramientas adecuadas. Hoy la clasificación se hace a mano con la API `/api/conversaciones` (disponible aunque el bot esté deshabilitado; ver Swagger UI).
 
 - El primer mensaje de un cliente abre una conversación `ABIERTA`; los siguientes se suman a ella mientras esté **vigente**.
-- **Inactividad**: si pasa `conversacion.inactividad` (por defecto `2h`) desde el último mensaje, la conversación se da por cerrada con motivo `INACTIVIDAD` y el siguiente mensaje abre una nueva.
+- **Inactividad**: si pasa `conversacion.inactividad` (variable `CONVERSACION_INACTIVIDAD`, por defecto `2h`; para probar a mano puedes poner `1m` en tu `application-local.properties`) desde el último mensaje, la conversación se da por cerrada con motivo `INACTIVIDAD` y el siguiente mensaje abre una nueva.
 - **Cierre explícito** (`PATCH /api/conversaciones/{id}/cerrar`): `INTENCION_RESUELTA` exige que todas sus intenciones estén resueltas; `MANUAL` cierra sin condiciones.
 - **Intenciones**: se registran en `PENDIENTE` (`POST .../intenciones`) y pasan a `RESUELTA` cuando se cumplió lo que el cliente quería (`PATCH .../intenciones/{intencionId}/resolver`). Solo puede haber una `PENDIENTE` por tipo. Lo que no encaja en el catálogo se registra como `OTRA` con un detalle.
 - Las conversaciones cerradas o vencidas no admiten cambios (409).
