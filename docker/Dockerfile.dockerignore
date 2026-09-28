@@ -1,0 +1,21 @@
+# Exclusiones del contexto de build (raiz del repo) para docker/Dockerfile.
+# BuildKit usa este archivo en lugar de un .dockerignore en la raiz.
+
+# Configuracion local y secretos: nunca deben terminar en la imagen
+**/application-local.properties
+**/.env
+
+# Artefactos y datos locales
+target/
+data/
+
+# Todo lo que el build no necesita
+.git/
+.idea/
+.vscode/
+.mvn/
+openspec/
+docker/
+*.md
+mvnw
+mvnw.cmd

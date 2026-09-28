@@ -1,0 +1,28 @@
+# Override local del desarrollador.
+#
+# Copia este archivo como application-local.properties (misma carpeta). Git lo
+# ignora y la aplicacion lo carga automaticamente, tambien en los tests, sin
+# activar ningun perfil. Solo declara las propiedades que quieras cambiar;
+# el resto se toma de application.properties.
+#
+# Precedencia: variables de entorno con nombre Spring (SPRING_DATASOURCE_URL...)
+# > este archivo > application.properties. Ojo: si aqui fijas un valor literal,
+# la variable corta equivalente (DB_URL, API_DOCS_ENABLED...) deja de tener
+# efecto en tu maquina.
+
+# Base de datos de desarrollo
+spring.datasource.url=jdbc:postgresql://localhost:5432/tienda_db
+spring.datasource.username=tu_usuario
+spring.datasource.password=tu_password
+
+# Log de SQL en consola
+spring.jpa.show-sql=true
+
+# Swagger UI en http://localhost:8080/swagger-ui.html (ambas con el mismo valor)
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.enabled=true
+
+# Bot de Telegram (usa un bot distinto al de produccion)
+#telegram.bot.habilitado=true
+#telegram.bot.token=
+#telegram.bot.modo=POLLING
