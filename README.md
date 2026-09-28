@@ -53,7 +53,9 @@ Cuando se registra una venta, el backend notifica al dueño de la tienda mediant
 | Tabla | Propósito |
 |---|---|
 | `cliente` | Persona que interactúa con el bot de Telegram (identificada por su `telegram_user_id`) |
-| `mensaje` | Cada mensaje de un chat privado con el bot, entrante o saliente: tipo (`TEXTO`, `VOZ`, `NO_SOPORTADO`), texto/caption y timestamps (dataset para el futuro NLP) |
+| `conversacion` | Agrupa los mensajes de un cliente: estado (`ABIERTA`, `CERRADA`), motivo de cierre (`INACTIVIDAD`, `INTENCION_RESUELTA`, `MANUAL`), fecha de inicio, del último mensaje y de cierre. `cliente_abierta` (única, nullable) garantiza una sola abierta por cliente |
+| `conversacion_intencion` | Intención de una conversación (`SALUDO`, `CONSULTA_CATALOGO`, `INICIAR_PEDIDO`, `CONSULTAR_ESTADO_PEDIDO`, `OTRA` con detalle), su estado (`PENDIENTE`, `RESUELTA`), origen (`MANUAL`, `LLM`) y mensaje que la originó |
+| `mensaje` | Cada mensaje de un chat privado con el bot, entrante o saliente: conversación, tipo (`TEXTO`, `VOZ`, `NO_SOPORTADO`), texto/caption y timestamps (dataset para el futuro NLP) |
 | `adjunto` | Nota de voz asociada a un mensaje: metadatos de Telegram, clave en el almacenamiento y estado (`PENDIENTE`, `OK`, `ERROR`) |
 | `usuario` | Dueño/vendedor que recibe notificaciones y confirma pagos |
 | `producto` | Catálogo de productos con precio y stock |
@@ -138,6 +140,30 @@ telegram.bot.webhook.secret=<secret>
 - Las notas de voz se guardan bajo `almacenamiento.local.directorio` (ignorado por git en `/data/`).
 - Por ahora el bot procesa solo **chats privados**: texto y notas de voz. Fotos, documentos, stickers, etc. se registran como `NO_SOPORTADO` sin descargar el archivo; grupos y mensajes editados se ignoran.
 
+### Conversaciones e intenciones
+
+Los mensajes de cada cliente se agrupan en **conversaciones**, que se clasifican con **intenciones** para que el LLM (a futuro) solo actúe con contexto y con las herramientas adecuadas. Hoy la clasificación se hace a mano con la API `/api/conversaciones` (disponible aunque el bot esté deshabilitado; ver Swagger UI).
+
+- El primer mensaje de un cliente abre una conversación `ABIERTA`; los siguientes se suman a ella mientras esté **vigente**.
+- **Inactividad**: si pasa `conversacion.inactividad` (por defecto `2h`) desde el último mensaje, la conversación se da por cerrada con motivo `INACTIVIDAD` y el siguiente mensaje abre una nueva.
+- **Cierre explícito** (`PATCH /api/conversaciones/{id}/cerrar`): `INTENCION_RESUELTA` exige que todas sus intenciones estén resueltas; `MANUAL` cierra sin condiciones.
+- **Intenciones**: se registran en `PENDIENTE` (`POST .../intenciones`) y pasan a `RESUELTA` cuando se cumplió lo que el cliente quería (`PATCH .../intenciones/{intencionId}/resolver`). Solo puede haber una `PENDIENTE` por tipo. Lo que no encaja en el catálogo se registra como `OTRA` con un detalle.
+- Las conversaciones cerradas o vencidas no admiten cambios (409).
+
+> **Estado en la base vs. estado efectivo.** No hay un proceso programado que cierre las conversaciones vencidas: el cierre por inactividad se guarda recién cuando el cliente vuelve a escribir. Por eso una fila `ABIERTA` en `conversacion` puede estar vencida. La API siempre informa el estado **efectivo**; si consultas la base directamente, una conversación está vigente solo si `estado = 'ABIERTA'` y `fecha_ultimo_mensaje > now() - inactividad`.
+
+#### Despliegue desde una versión sin conversaciones
+
+Cada mensaje pertenece obligatoriamente a una conversación (`mensaje.conversacion_id NOT NULL`). Hibernate no puede agregar esa columna a una tabla con filas: registra el error y la aplicación **arranca igual, sin la columna**, fallando con el primer mensaje. Antes de desplegar esta versión sobre una base existente:
+
+1. Detén la aplicación.
+2. Vacía los datos del bot (los clientes se conservan):
+   ```sql
+   TRUNCATE adjunto, mensaje;
+   ```
+3. Borra las notas de voz guardadas: el contenido de `<almacenamiento.local.directorio>/voz/`.
+4. Arranca la versión nueva y verifica que `mensaje.conversacion_id` existe y es `NOT NULL`.
+
 ### Documentación de la API (OpenAPI / Swagger UI)
 
 La especificación OpenAPI y la interfaz Swagger UI están **apagadas por defecto**. Se activan con dos propiedades que deben tener **el mismo valor**: en el servidor, con la variable `API_DOCS_ENABLED=true` (controla las dos); en desarrollo, en tu override local:
@@ -147,7 +173,7 @@ springdoc.api-docs.enabled=true
 springdoc.swagger-ui.enabled=true
 ```
 
-- `GET /v3/api-docs`: especificación OpenAPI 3 en JSON (productos y ventas; el webhook de Telegram no se documenta).
+- `GET /v3/api-docs`: especificación OpenAPI 3 en JSON (productos, ventas y conversaciones; el webhook de Telegram no se documenta).
 - `/swagger-ui.html`: interfaz para explorar y probar los endpoints desde el navegador (por ejemplo `http://localhost:8080/swagger-ui.html`).
 - Con ambas en `false`, las dos rutas responden 404. Si solo se apaga `api-docs`, la interfaz carga pero queda vacía.
 - Por defecto quedan en `false` en `application.properties`. La API no tiene autenticación, así que no las actives en producción salvo que sea necesario.
@@ -188,7 +214,8 @@ El backend se despliega junto a su PostgreSQL con Docker Compose en un servidor 
 
 - [x] Implementar endpoints REST de Producto y Venta
 - [x] Bot de Telegram integrado: recepción (polling/webhook), historial de mensajes y notas de voz
-- [ ] Respuestas del bot con NLP/IA (reemplazando la respuesta genérica)
+- [x] Conversaciones con clasificación manual de intenciones (API REST)
+- [ ] Clasificación de intenciones y respuestas del bot con NLP/IA (reemplazando la respuesta genérica)
 - [ ] Evaluar si el servidor MCP sigue siendo necesario con la IA dentro del backend
 - [ ] Implementar validación de stock antes de registrar una venta
 - [ ] Implementar sistema de notificaciones push al dueño
