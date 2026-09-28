@@ -5,8 +5,8 @@
 - [x] 1.1 Crear los enums `EstadoConversacion`, `MotivoCierre`, `Intencion`, `EstadoIntencion` y `OrigenClasificacion` en `chatbot/`, y verificar que compila
 - [x] 1.2 Crear `ConversacionProperties` (`conversacion.inactividad`, `Duration`, por defecto `2h`, validada como positiva) y un bean `Clock.systemUTC()`. Verificar con un test de `ApplicationContextRunner` que sin la propiedad vale 2 horas y que con `conversacion.inactividad=0s` el arranque falla nombrando la propiedad
 - [x] 1.3 Crear la entidad `Conversacion` según design D2: `cliente_abierta` nullable con restricción única, índice por `cliente_id` y fechas `Instant`. Incluir los métodos de dominio de vigencia y estado efectivo (D3). Verificar con tests unitarios la vigencia justo antes y justo en el límite de inactividad, y el estado efectivo de una conversación `ABIERTA` vencida (`CERRADA`, `INACTIVIDAD`, `fechaUltimoMensaje + inactividad`)
-- [ ] 1.4 Crear la entidad `ConversacionIntencion` (`@ManyToOne` a `Conversacion` y a `Mensaje` opcional, `detalle` de hasta 500 caracteres) y agregar a `Mensaje` la relación `@ManyToOne(optional = false)` con `Conversacion` más un índice por `conversacion_id`. Verificar contra el PostgreSQL local, con `mensaje` vacía, que Hibernate crea las tablas `conversacion` y `conversacion_intencion`, la columna `mensaje.conversacion_id NOT NULL` y la restricción única de `cliente_abierta`
-- [ ] 1.5 Crear `ConversacionRepository` con:
+- [x] 1.4 Crear la entidad `ConversacionIntencion` (`@ManyToOne` a `Conversacion` y a `Mensaje` opcional, `detalle` de hasta 500 caracteres) y agregar a `Mensaje` la relación `@ManyToOne(optional = false)` con `Conversacion` más un índice por `conversacion_id`. Verificar contra el PostgreSQL local, con `mensaje` vacía, que Hibernate crea las tablas `conversacion` y `conversacion_intencion`, la columna `mensaje.conversacion_id NOT NULL` y la restricción única de `cliente_abierta`
+- [x] 1.5 Crear `ConversacionRepository` con:
   - la búsqueda por `clienteAbierta` con `PESSIMISTIC_WRITE`;
   - la búsqueda por id con `PESSIMISTIC_WRITE`;
   - la consulta JPQL de listado con filtros de cliente, estado efectivo (parámetro `limite`) y `sinClasificar` (`NOT EXISTS`), ordenada por `fechaUltimoMensaje` descendente.
@@ -54,12 +54,12 @@
   - códigos 200/201/400/404/409 de cada operación;
   - el cuerpo `{error}` que lista los valores válidos ante `intencion=RECLAMO`;
   - el filtro `estado=INVALIDO` responde 400
-- [ ] 4.2 Documentar el controlador y los DTOs con springdoc, en español: grupo `Conversaciones` en `OpenApiConfig`, resumen y descripción de cada operación, parámetros de ruta y de consulta, campos con ejemplo, `allowableValues` en los enums y respuestas 400/404/409 con sus records de `common/openapi`. Actualizar la descripción general de la API. Extender `DocumentacionApiHabilitadaTest` para verificar que `/v3/api-docs` contiene las cinco rutas nuevas y que el esquema de registro de intenciones enumera las cinco intenciones
-- [ ] 4.3 Verificar con un test de contexto (bot deshabilitado) que `GET /api/conversaciones` responde 200, lo que confirma que `ConversacionService` y el controlador no dependen de `telegram.bot.habilitado`
+- [x] 4.2 Documentar el controlador y los DTOs con springdoc, en español: grupo `Conversaciones` en `OpenApiConfig`, resumen y descripción de cada operación, parámetros de ruta y de consulta, campos con ejemplo, `allowableValues` en los enums y respuestas 400/404/409 con sus records de `common/openapi`. Actualizar la descripción general de la API. Extender `DocumentacionApiHabilitadaTest` para verificar que `/v3/api-docs` contiene las cinco rutas nuevas y que el esquema de registro de intenciones enumera las cinco intenciones
+- [x] 4.3 Verificar con un test de contexto (bot deshabilitado) que `GET /api/conversaciones` responde 200, lo que confirma que `ConversacionService` y el controlador no dependen de `telegram.bot.habilitado`
 
 ## 5. Configuración, documentación y verificación integral
 
-- [ ] 5.1 Siguiendo la estrategia de `configuracion-entorno`:
+- [x] 5.1 Siguiendo la estrategia de `configuracion-entorno`:
   - agregar `conversacion.inactividad=${CONVERSACION_INACTIVIDAD:2h}` a `application.properties`;
   - agregar un override comentado (`1m`) a `application-local.properties.example`;
   - agregar `CONVERSACION_INACTIVIDAD` a `docker/docker-compose.yml`, a `docker/.env.example` y a la tabla de variables del README.
@@ -71,9 +71,9 @@
   - paso previo obligatorio de despliegue: vaciar `adjunto`/`mensaje` y borrar los audios.
 
   Verificar revisando el Markdown renderizado
-- [ ] 5.3 Con el PostgreSQL local vaciado según el Migration Plan y el bot en modo POLLING:
+- [x] 5.3 Con el PostgreSQL local vaciado según el Migration Plan y el bot en modo POLLING:
   - enviar "hola" y "quiero ver el catálogo", y verificar que existe una sola conversación `ABIERTA` con los cuatro mensajes;
   - por Swagger UI, registrar `SALUDO` y `CONSULTA_CATALOGO`, intentar duplicar `CONSULTA_CATALOGO` (409), intentar cerrar con `INTENCION_RESUELTA` (409), resolver ambas y cerrar (200);
   - enviar otro mensaje y verificar que abre una conversación nueva
-- [ ] 5.4 Con `conversacion.inactividad=1m` en local, dejar pasar más de un minuto sin escribir y verificar que `GET /api/conversaciones?estado=ABIERTA` ya no la lista, que el detalle la informa como `CERRADA`/`INACTIVIDAD`, que registrar una intención responde 409 y que el siguiente mensaje abre una conversación nueva y persiste el cierre de la anterior en la base
-- [ ] 5.5 Ejecutar `./mvnw test` y verificar que toda la suite pasa
+- [x] 5.4 Con `conversacion.inactividad=1m` en local, dejar pasar más de un minuto sin escribir y verificar que `GET /api/conversaciones?estado=ABIERTA` ya no la lista, que el detalle la informa como `CERRADA`/`INACTIVIDAD`, que registrar una intención responde 409 y que el siguiente mensaje abre una conversación nueva y persiste el cierre de la anterior en la base
+- [x] 5.5 Ejecutar `./mvnw test` y verificar que toda la suite pasa
