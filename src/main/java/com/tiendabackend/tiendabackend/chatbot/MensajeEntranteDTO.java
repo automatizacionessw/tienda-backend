@@ -14,6 +14,7 @@ public class MensajeEntranteDTO {
 
     private Long mensajeId;
     private Long clienteId;
+    private Long conversacionId;
     private TipoMensaje tipo;
     private String texto;
     private Instant fechaTelegram;
@@ -22,6 +23,7 @@ public class MensajeEntranteDTO {
         return new MensajeEntranteDTO(
                 mensaje.getId(),
                 mensaje.getClienteId(),
+                mensaje.getConversacion().getId(),
                 mensaje.getTipo(),
                 mensaje.getTexto(),
                 mensaje.getFechaTelegram()
