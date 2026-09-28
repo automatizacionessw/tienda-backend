@@ -4,6 +4,12 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+#configuracion de credenciales
+src/main/resources/application.properties
+
+#archivos guardados por el almacenamiento local (notas de voz)
+/data/
+
 ### STS ###
 .apt_generated
 .classpath
