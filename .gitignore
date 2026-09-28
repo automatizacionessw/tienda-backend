@@ -4,8 +4,11 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-#configuracion de credenciales
-src/main/resources/application.properties
+#overrides locales de configuracion (credenciales de cada desarrollador)
+application-local.properties
+
+#variables del despliegue con Docker (en Dokploy las escribe la UI)
+docker/.env
 
 #archivos guardados por el almacenamiento local (notas de voz)
 /data/
