@@ -14,6 +14,8 @@ public class OpenApiConfig {
 
     public static final String TAG_PRODUCTOS = "Productos";
     public static final String TAG_VENTAS = "Ventas";
+    public static final String TAG_CLIENTES = "Clientes";
+    public static final String TAG_USUARIOS = "Usuarios / Dueños";
 
     @Bean
     public OpenAPI openApi() {
@@ -22,7 +24,7 @@ public class OpenApiConfig {
                         .title("API Tienda Backend")
                         .version("0.0.1")
                         .description("""
-                                API REST de la tienda: catálogo de productos y registro de ventas.
+                                API REST de la tienda: catálogo de productos, registro de ventas, gestión de clientes y usuarios.
 
                                 Las ventas las crea la IA (vía MCP) en estado PENDIENTE, reservando \
                                 el stock de cada producto. El dueño las pasa a COMPLETADA cuando \
@@ -32,6 +34,10 @@ public class OpenApiConfig {
                         new Tag().name(TAG_PRODUCTOS)
                                 .description("Alta, consulta, modificación y baja lógica de productos del catálogo"),
                         new Tag().name(TAG_VENTAS)
-                                .description("Creación de ventas pendientes y su confirmación o cancelación")));
+                                .description("Creación de ventas pendientes y su confirmación o cancelación"),
+                        new Tag().name(TAG_CLIENTES)
+                                .description("Gestión y consulta de clientes registrados (vía Telegram o manual)"),
+                        new Tag().name(TAG_USUARIOS)
+                                .description("Gestión de usuarios administradores y dueños de tienda")));
     }
 }
