@@ -17,16 +17,23 @@ El contexto de build es la **raíz del repositorio**, porque la imagen necesita 
 
 ```
  Dokploy UI (Environment) --> docker/.env --> ${VAR} en docker-compose.yml
- Dokploy UI (Domains)     --> Traefik --+--> backend:8080   (dominio del backend)
-                                        +--> n8n:5678       (dominio de n8n)
-                                               |
-      red interna del compose                  |  TIENDA_BACKEND_URL=http://backend:8080
-      +----------------------------------------+-------------+
-      |  db:5432  <-- backend  <-- n8n                        |
+
+ internet --> Traefik (Dokploy, Domains) --> n8n:5678        (unico dominio publico)
+
+ red interna de la organizacion --> <BACKEND_BIND_IP>:8080 --> backend:8080
+                                                                (Swagger, API REST)
+
+      red del compose                     TIENDA_BACKEND_URL=http://backend:8080
       +-------------------------------------------------------+
+      |  db:5432  <-- backend  <-- n8n                        |
+      +-------------------------|-----------------------------+
+                                +--> api.telegram.org (salida, long polling)
 ```
 
-- **Sin puertos publicados:** `backend` y `n8n` usan `expose` y Traefik (Dokploy) enruta un dominio hacia cada uno. PostgreSQL no es accesible desde fuera.
+- **Solo n8n es público:** usa `expose` y Traefik (Dokploy) enruta su dominio hacia él. El backend **no tiene dominio**, porque la API REST no tiene autenticación.
+- **Backend solo en la red interna:** el backend publica su puerto únicamente en `BACKEND_BIND_IP`, la IP interna del servidor, en el puerto `BACKEND_HOST_PORT` (por defecto `8080`). Sin esa variable se publica solo en `127.0.0.1`. Docker ata el socket a esa IP, así que el puerto no existe en la IP pública. No uses `0.0.0.0` ni la IP pública.
+- **Bot por long polling:** el backend sale a buscar los mensajes a Telegram y no necesita tráfico entrante. Al arrancar en POLLING borra cualquier webhook registrado.
+- **PostgreSQL** no publica puertos: solo es accesible dentro del compose.
 - **Credenciales en un solo lugar:** `POSTGRES_DB`, `POSTGRES_USER` y `POSTGRES_PASSWORD` configuran la base de datos y también la conexión del backend.
 - **Variables obligatorias:** si falta `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `N8N_ENCRYPTION_KEY` o `N8N_HOST`, `docker compose` se detiene con un error que la nombra.
 - **Arranque ordenado:** `backend` espera a que `db` pase su healthcheck (`pg_isready`). A su vez, `backend` se reporta sano con `/actuator/health` y `n8n` con `/healthz`.
@@ -47,21 +54,22 @@ El contexto de build es la **raíz del repositorio**, porque la imagen necesita 
 2. En **Compose Path**, indica `./docker/docker-compose.yml`.
 3. En **Environment**, carga las variables siguiendo [`.env.example`](.env.example). Como mínimo:
    - `POSTGRES_DB`, `POSTGRES_USER` y un `POSTGRES_PASSWORD` seguro;
-   - `N8N_ENCRYPTION_KEY` (generada con `openssl rand -hex 32`) y `N8N_HOST`, el dominio de n8n.
+   - `N8N_ENCRYPTION_KEY` (generada con `openssl rand -hex 32`) y `N8N_HOST`, el dominio de n8n;
+   - `BACKEND_BIND_IP`, con la **IP interna** del servidor.
 
    Dokploy las escribe en `docker/.env` al desplegar.
 4. Activa **Isolated Deployments**, que conecta los servicios con Traefik sin editar el compose.
-5. En **Domains**, agrega dos dominios con HTTPS:
-   - el del backend, apuntando al servicio `backend`, puerto `8080`;
-   - el de n8n (el mismo valor que `N8N_HOST`), apuntando al servicio `n8n`, puerto `5678`.
-6. Pulsa **Deploy**. Para comprobarlo, `https://<dominio-backend>/actuator/health` debe responder con `"status":"UP"`.
+5. En **Domains**, agrega **un solo dominio**, con HTTPS: el de n8n (el mismo valor que `N8N_HOST`), apuntando al servicio `n8n`, puerto `5678`. **No asignes dominio al servicio `backend`**, porque Traefik lo expondría a internet.
+6. Pulsa **Deploy**. Para comprobarlo, desde la red interna, `http://<ip-interna>:8080/actuator/health` debe responder con `"status":"UP"`.
 7. **De inmediato**, abre `https://<dominio-n8n>` y crea la cuenta owner.
 
 > **Importante:** n8n deja crear la cuenta owner al primer visitante del editor. Si el dominio queda público sin owner, cualquiera puede tomar la instancia. Crea el owner apenas termina el deploy, o asigna el dominio de n8n recién cuando vayas a crearlo.
 
-Para habilitar el bot en modo webhook: `TELEGRAM_BOT_ENABLED=true`, `TELEGRAM_BOT_MODE=WEBHOOK`, `TELEGRAM_WEBHOOK_URL=https://<dominio-backend>/telegram/webhook` y un `TELEGRAM_WEBHOOK_SECRET`. Usa un bot distinto al de desarrollo.
+Para habilitar el bot: `TELEGRAM_BOT_ENABLED=true`, `TELEGRAM_BOT_MODE=POLLING` y el `TELEGRAM_BOT_TOKEN`. Usa un bot distinto al de desarrollo. El modo WEBHOOK sigue soportado por la aplicación, pero requiere que Telegram llegue al backend por HTTPS público. Por eso no aplica a este despliegue.
 
-**Actualizar un despliegue anterior a n8n:** antes de redesplegar, agrega `N8N_ENCRYPTION_KEY` y `N8N_HOST` en Environment y el dominio de n8n en Domains. Sin esas variables, el deploy falla con un error que las nombra.
+**Actualizar un despliegue existente:**
+- **Anterior a n8n:** antes de redesplegar, agrega `N8N_ENCRYPTION_KEY` y `N8N_HOST` en Environment y el dominio de n8n en Domains. Sin esas variables, el deploy falla con un error que las nombra.
+- **Con dominio en el backend:** agrega `BACKEND_BIND_IP` en Environment y **quita el dominio del servicio `backend`** en Domains. Si no lo quitas, Traefik lo sigue exponiendo.
 
 **Rollback:** redespliega un commit anterior desde Dokploy. Los volúmenes se conservan. Si el commit es anterior a n8n, el servicio desaparece, pero su volumen `n8n_data` queda con los datos por si se vuelve a desplegar.
 
@@ -77,10 +85,10 @@ docker compose -f docker/docker-compose.yml up -d --build --wait
 docker compose -f docker/docker-compose.yml ps
 ```
 
-Como no se publican puertos, prueba desde dentro de los contenedores:
+Sin `BACKEND_BIND_IP`, el backend queda en `http://127.0.0.1:8080`. Si ya tienes el backend del IDE en ese puerto, define `BACKEND_HOST_PORT` con otro, por ejemplo `18080`. n8n no publica puertos, así que se prueba desde dentro de su contenedor:
 
 ```bash
-docker compose -f docker/docker-compose.yml exec backend wget -qO- http://localhost:8080/api/productos
+curl http://127.0.0.1:8080/api/productos
 docker compose -f docker/docker-compose.yml exec n8n node -e "fetch('http://backend:8080/actuator/health').then(r=>r.text()).then(console.log)"
 ```
 

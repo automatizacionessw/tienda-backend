@@ -185,7 +185,7 @@ Debería responder `{"status":"UP"}`.
 
 ## Despliegue con Docker
 
-El backend se despliega junto a su PostgreSQL y una instancia de **n8n** (automatizaciones) con Docker Compose en un servidor con **Dokploy**. Todo lo relacionado con Docker vive en la carpeta [`docker/`](docker/): `Dockerfile`, `docker-compose.yml`, la plantilla de variables `.env.example` y el entorno de desarrollo en `docker/local/`. La guía paso a paso del despliegue está en [docker/README.md](docker/README.md), y la del entorno local en [docker/README.md#entorno-local](docker/README.md#entorno-local).
+El backend se despliega junto a su PostgreSQL y una instancia de **n8n** (automatizaciones) con Docker Compose en un servidor con **Dokploy**. n8n es el único servicio con dominio público. El backend solo es accesible desde la red interna, en la IP interna del servidor (`BACKEND_BIND_IP`), porque la API no tiene autenticación. El bot recibe los mensajes por long polling. Todo lo relacionado con Docker vive en la carpeta [`docker/`](docker/): `Dockerfile`, `docker-compose.yml`, la plantilla de variables `.env.example` y el entorno de desarrollo en `docker/local/`. La guía paso a paso del despliegue está en [docker/README.md](docker/README.md), y la del entorno local en [docker/README.md#entorno-local](docker/README.md#entorno-local).
 
 ## Estado del proyecto
 
