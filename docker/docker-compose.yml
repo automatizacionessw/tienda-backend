@@ -1,6 +1,8 @@
-# Despliegue del backend + PostgreSQL con Dokploy (ver docker/README.md).
+# Despliegue del backend + PostgreSQL + n8n con Dokploy (ver docker/README.md).
+# n8n es el unico servicio con dominio publico; el backend solo en la IP interna.
 # Las variables se leen de docker/.env, que en Dokploy escribe su UI a partir
 # de la pestana Environment. Plantilla: docker/.env.example.
+# Para desarrollo local se usa docker/local/docker-compose.yml.
 
 services:
   db:
@@ -39,9 +41,11 @@ services:
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
-    # Sin "ports": el dominio se asigna en Dokploy y Traefik enruta a backend:8080.
-    expose:
-      - "8080"
+    # Sin dominio publico: el backend se publica solo en la IP interna del
+    # servidor (BACKEND_BIND_IP). Sin esa variable, solo en 127.0.0.1.
+    # n8n lo alcanza por la red del compose en http://backend:8080.
+    ports:
+      - "${BACKEND_BIND_IP:-127.0.0.1}:${BACKEND_HOST_PORT:-8080}:8080"
     volumes:
       - archivos:/app/data/archivos
     healthcheck:
@@ -51,6 +55,41 @@ services:
       retries: 5
       start_period: 60s
 
+  n8n:
+    # Version fija: actualizar n8n es un cambio explicito en el repositorio.
+    image: n8nio/n8n:2.40.7
+    restart: unless-stopped
+    environment:
+      # Cifra las credenciales guardadas: no cambiarla despues del primer deploy.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Falta N8N_ENCRYPTION_KEY en docker/.env}
+      N8N_HOST: ${N8N_HOST:?Falta N8N_HOST en docker/.env}
+      N8N_PROTOCOL: https
+      N8N_EDITOR_BASE_URL: https://${N8N_HOST}/
+      N8N_WEBHOOK_URL: https://${N8N_HOST}/
+      # Detras de Traefik (Dokploy).
+      N8N_PROXY_HOPS: 1
+      GENERIC_TIMEZONE: ${N8N_TIMEZONE:-UTC}
+      TZ: ${N8N_TIMEZONE:-UTC}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      # Permite $env.TIENDA_BACKEND_URL en los workflows. Los workflows ven
+      # todas las variables de este contenedor: nunca pasarle secretos del
+      # backend (base de datos, Telegram).
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      TIENDA_BACKEND_URL: http://backend:8080
+    # Sin "ports": el dominio de n8n se asigna en Dokploy (servicio n8n, puerto 5678).
+    expose:
+      - "5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      # La imagen no garantiza wget ni curl; node si esta disponible.
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5678/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 volumes:
   pgdata:
   archivos:
+  n8n_data:

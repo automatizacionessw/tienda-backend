@@ -64,7 +64,7 @@ Cuando se registra una venta, el backend notifica al dueño de la tienda mediant
 ## Requisitos previos
 
 - **JDK 17 o superior** instalado
-- **PostgreSQL** corriendo (local o en Docker), con una base de datos creada
+- **PostgreSQL** con una base de datos creada, o **Docker** para levantarla (junto con n8n) con el [entorno local](docker/README.md#entorno-local)
 - **Maven** (o usar el wrapper `./mvnw` incluido en el proyecto)
 
 ## Configuración
@@ -81,16 +81,21 @@ La configuración se resuelve en tres capas. Cada una tiene prioridad sobre la a
 
 ### Configuración para desarrollo
 
-Crea tu override a partir del ejemplo y completa tus datos:
+La forma más rápida es levantar la base de datos y n8n con el entorno local de Docker y copiar el ejemplo tal cual, porque ya apunta a esa base:
 
 ```bash
+docker compose -f docker/local/docker-compose.yml up -d --wait
 cp src/main/resources/application-local.properties.example src/main/resources/application-local.properties
 ```
 
+El entorno local también puede levantar el backend en un contenedor (modo completo), sin IDE. Ver [docker/README.md](docker/README.md#entorno-local).
+
+Si usas tu propia base de datos, cambia la conexión en tu copia:
+
 ```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/nombre_de_tu_bd
-spring.datasource.username=tu_usuario
-spring.datasource.password=tu_password
+spring.datasource.url=jdbc:postgresql://localhost:5432/tienda_db
+spring.datasource.username=tienda
+spring.datasource.password=tienda
 spring.jpa.show-sql=true
 springdoc.api-docs.enabled=true
 springdoc.swagger-ui.enabled=true
@@ -180,7 +185,7 @@ Debería responder `{"status":"UP"}`.
 
 ## Despliegue con Docker
 
-El backend se despliega junto a su PostgreSQL con Docker Compose en un servidor con **Dokploy**. Todo lo relacionado con Docker vive en la carpeta [`docker/`](docker/): `Dockerfile`, `docker-compose.yml` y la plantilla de variables `.env.example`. La guía paso a paso está en [docker/README.md](docker/README.md).
+El backend se despliega junto a su PostgreSQL y una instancia de **n8n** (automatizaciones) con Docker Compose en un servidor con **Dokploy**. n8n es el único servicio con dominio público. El backend solo es accesible desde la red interna, en la IP interna del servidor (`BACKEND_BIND_IP`), porque la API no tiene autenticación. El bot recibe los mensajes por long polling. Todo lo relacionado con Docker vive en la carpeta [`docker/`](docker/): `Dockerfile`, `docker-compose.yml`, la plantilla de variables `.env.example` y el entorno de desarrollo en `docker/local/`. La guía paso a paso del despliegue está en [docker/README.md](docker/README.md), y la del entorno local en [docker/README.md#entorno-local](docker/README.md#entorno-local).
 
 ## Estado del proyecto
 

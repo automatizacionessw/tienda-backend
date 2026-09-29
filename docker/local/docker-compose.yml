@@ -1,0 +1,100 @@
+# Entorno de desarrollo local (ver docker/README.md, seccion "Entorno local").
+#   docker compose -f docker/local/docker-compose.yml up -d --build --wait
+#
+# Modos:
+#   - desarrollo (por defecto): db + n8n. El backend corre en el IDE.
+#   - completo: ademas construye y levanta el backend. Se activa en
+#     docker/local/.env (plantilla: docker/local/.env.example).
+#
+# Este compose lee docker/local/.env (opcional), nunca docker/.env del
+# despliegue. Los puertos se publican solo en 127.0.0.1.
+
+name: tienda-local
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      # Credenciales fijas de desarrollo; coinciden con
+      # src/main/resources/application-local.properties.example.
+      POSTGRES_DB: tienda_db
+      POSTGRES_USER: tienda
+      POSTGRES_PASSWORD: tienda
+    ports:
+      - "127.0.0.1:${LOCAL_DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tienda -d tienda_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  n8n:
+    # Misma version que docker/docker-compose.yml.
+    image: n8nio/n8n:2.40.7
+    restart: unless-stopped
+    environment:
+      N8N_HOST: localhost
+      N8N_PROTOCOL: http
+      # Sin HTTPS en local: la cookie de sesion no puede ser Secure.
+      N8N_SECURE_COOKIE: "false"
+      N8N_EDITOR_BASE_URL: http://localhost:${LOCAL_N8N_PORT:-5678}/
+      N8N_WEBHOOK_URL: http://localhost:${LOCAL_N8N_PORT:-5678}/
+      # Sin N8N_ENCRYPTION_KEY: n8n la genera y la guarda en su volumen.
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      # Permite $env.TIENDA_BACKEND_URL en los workflows (ver el compose de
+      # despliegue): no pasarle secretos del backend a este contenedor.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      # Modo desarrollo: el backend del IDE, en el host.
+      # Modo completo: http://backend:8080 (se define en docker/local/.env).
+      TIENDA_BACKEND_URL: ${TIENDA_BACKEND_URL:-http://host.docker.internal:8080}
+    extra_hosts:
+      # host.docker.internal tambien en Linux (Docker Desktop ya lo define).
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${LOCAL_N8N_PORT:-5678}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5678/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    # Solo en modo completo (COMPOSE_PROFILES=completo).
+    profiles: ["completo"]
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/tienda_db
+      DB_USERNAME: tienda
+      DB_PASSWORD: tienda
+      API_DOCS_ENABLED: "true"
+      TELEGRAM_BOT_ENABLED: ${TELEGRAM_BOT_ENABLED:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      # En local no hay URL publica para el webhook.
+      TELEGRAM_BOT_MODE: POLLING
+    ports:
+      - "127.0.0.1:${LOCAL_BACKEND_PORT:-8080}:8080"
+    volumes:
+      - archivos:/app/data/archivos
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  pgdata:
+  n8n_data:
+  archivos:

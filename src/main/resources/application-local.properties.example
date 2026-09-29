@@ -10,10 +10,12 @@
 # la variable corta equivalente (DB_URL, API_DOCS_ENABLED...) deja de tener
 # efecto en tu maquina.
 
-# Base de datos de desarrollo
+# Base de datos de desarrollo: la del entorno local
+#   docker compose -f docker/local/docker-compose.yml up -d --wait
+# Si usas otra base, reemplaza URL, usuario y contrasena.
 spring.datasource.url=jdbc:postgresql://localhost:5432/tienda_db
-spring.datasource.username=tu_usuario
-spring.datasource.password=tu_password
+spring.datasource.username=tienda
+spring.datasource.password=tienda
 
 # Log de SQL en consola
 spring.jpa.show-sql=true

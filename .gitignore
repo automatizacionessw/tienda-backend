@@ -9,6 +9,7 @@ application-local.properties
 
 #variables del despliegue con Docker (en Dokploy las escribe la UI)
 docker/.env
+docker/local/.env
 
 #archivos guardados por el almacenamiento local (notas de voz)
 /data/

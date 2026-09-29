@@ -1,10 +1,6 @@
-# despliegue-docker Specification
+# Spec Delta
 
-## Purpose
-
-Permite construir el backend como imagen Docker y desplegarlo junto a su base de datos PostgreSQL y una instancia de n8n con Docker Compose en un servidor gestionado por Dokploy, configurado mediante variables de entorno. Agrupa también el compose del entorno local.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Artefactos de despliegue agrupados
 Todos los archivos de Docker MUST estar en la carpeta `docker/` de la raíz del repositorio:
@@ -19,20 +15,11 @@ Todos los archivos de Docker MUST estar en la carpeta `docker/` de la raíz del 
 - **AND** `docker/local/` contiene `docker-compose.yml` y `.env.example`
 - **AND** no hay archivos de Docker fuera de esa carpeta
 
-### Requirement: Imagen Docker del backend
-El repositorio MUST permitir construir una imagen ejecutable del backend con Java 17 sin tener Maven ni JDK instalados en el host. La imagen MUST NOT contener `application-local.properties`, archivos `.env`, el directorio `data/` ni artefactos de `target/` del host.
-
-#### Scenario: Construcción de la imagen
-- **WHEN** se construye la imagen desde la raíz del repositorio con el Dockerfile de `docker/`
-- **THEN** la construcción termina correctamente en un host que solo tiene Docker
-- **AND** la imagen resultante no contiene `application-local.properties`, aunque exista en el árbol de trabajo
-
 ### Requirement: Orquestación con Docker Compose
 `docker/docker-compose.yml` MUST definir un servicio de PostgreSQL, un servicio del backend y un servicio de n8n.
 - El backend MUST conectarse a la base de datos de ese compose y MUST arrancar recién cuando la base de datos acepte conexiones.
-- n8n MUST alcanzar al backend por la red interna del compose, sin pasar por ninguna dirección del host.
-- PostgreSQL y n8n MUST NOT publicar puertos en el host. n8n MUST exponer su puerto HTTP solo en la red de contenedores, para que el enrutamiento de su dominio lo haga el proxy de Dokploy.
-- El backend MUST publicar su puerto HTTP en el host **solo en la dirección IP configurada** para ello, que en el servidor es la IP interna. Si no se configura ninguna, MUST publicarse solo en `127.0.0.1`. El backend MUST NOT ser accesible desde la red pública.
+- n8n MUST alcanzar al backend por la red interna del compose, sin pasar por el dominio público.
+- Ningún servicio MUST publicar puertos en el host. El backend y n8n MUST exponer su puerto HTTP solo en la red de contenedores, para que el enrutamiento de sus dominios lo haga el proxy de Dokploy.
 
 #### Scenario: Levantar el stack
 - **WHEN** se crea `docker/.env` a partir de `docker/.env.example` con valores válidos y se ejecuta `docker compose -f docker/docker-compose.yml up -d`
@@ -47,16 +34,6 @@ El repositorio MUST permitir construir una imagen ejecutable del backend con Jav
 - **WHEN** el stack está en ejecución
 - **THEN** desde el contenedor de n8n, `GET http://backend:8080/actuator/health` responde con `"status":"UP"`
 
-#### Scenario: Backend solo en la IP interna
-- **WHEN** `docker/.env` define como IP de publicación del backend la IP interna del servidor y el stack está en ejecución
-- **THEN** el puerto del backend escucha solo en esa IP
-- **AND** desde la red interna, `GET http://<ip-interna>:8080/actuator/health` responde con `"status":"UP"`
-- **AND** el puerto del backend no responde en la IP pública del servidor
-
-#### Scenario: Sin IP configurada
-- **WHEN** `docker/.env` no define la IP de publicación del backend y el stack está en ejecución
-- **THEN** el puerto del backend escucha solo en `127.0.0.1` del host
-
 ### Requirement: Persistencia de datos
 Los datos de PostgreSQL, los archivos que guarda la aplicación (notas de voz) y los datos de n8n MUST persistir en volúmenes con nombre de Docker, de modo que sobrevivan a redeploys y reinicios y se puedan respaldar con Dokploy.
 
@@ -70,7 +47,6 @@ El compose MUST tomar su configuración del archivo `docker/.env`:
 - variables de Telegram;
 - activación de la documentación;
 - estrategia de esquema;
-- IP y puerto del host en los que se publica el backend;
 - clave de cifrado, dominio público y zona horaria de n8n.
 
 Las variables obligatorias MUST hacer fallar el despliegue con un mensaje claro si faltan. Entre ellas están la contraseña de la base de datos, la clave de cifrado de n8n y el dominio de n8n. El repositorio MUST incluir `docker/.env.example` con todas las variables documentadas, y git MUST ignorar `docker/.env`.
@@ -85,7 +61,7 @@ Las variables obligatorias MUST hacer fallar el despliegue con un mensaje claro 
 
 #### Scenario: Activar Swagger desde .env
 - **WHEN** se define `API_DOCS_ENABLED=true` en `docker/.env` y se recrea el servicio del backend
-- **THEN** `/swagger-ui.html` está disponible en el backend desplegado, desde la red interna
+- **THEN** `/swagger-ui.html` está disponible en el backend desplegado
 
 #### Scenario: URLs públicas de n8n
 - **WHEN** `docker/.env` define el dominio de n8n y se despliega
