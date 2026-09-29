@@ -1,9 +1,6 @@
-# documentacion-api Specification
+# Spec Delta
 
-## Purpose
-Publica una especificación OpenAPI de la API REST del backend y una interfaz Swagger UI para probar sus endpoints a mano. Ambas se pueden activar o desactivar por configuración según el entorno.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Especificación OpenAPI de la API REST
 Cuando la documentación está habilitada, el sistema MUST publicar en `GET /v3/api-docs` un documento OpenAPI 3 en formato JSON. Ese documento MUST describir todas las operaciones de `/api/productos`, `/api/ventas` y `/api/conversaciones`, con sus parámetros, cuerpos de petición y cuerpos de respuesta.
@@ -21,18 +18,6 @@ Cuando la documentación está habilitada, el sistema MUST ofrecer en `/swagger-
 - **WHEN** la documentación está habilitada y un usuario abre `/swagger-ui.html` en el navegador
 - **THEN** se muestra la interfaz Swagger UI con las operaciones de productos, ventas y conversaciones agrupadas por recurso
 - **AND** el usuario puede enviar una petición de prueba y ver la respuesta real del backend
-
-### Requirement: Activación por configuración
-El sistema MUST permitir activar o desactivar la especificación y la interfaz mediante propiedades de configuración de la aplicación. Con ambas desactivadas, ni la especificación ni la interfaz MUST ser accesibles. Las demás rutas de la API MUST seguir funcionando igual.
-
-#### Scenario: Documentación desactivada
-- **WHEN** la aplicación arranca con la documentación desactivada y un cliente hace `GET /v3/api-docs` o `GET /swagger-ui.html`
-- **THEN** el sistema responde 404 en ambos casos
-- **AND** `GET /api/productos` sigue respondiendo como siempre
-
-#### Scenario: Documentación activada
-- **WHEN** la aplicación arranca con la documentación activada
-- **THEN** `GET /v3/api-docs` responde 200
 
 ### Requirement: Descripciones en español
 La especificación MUST incluir en español:
@@ -80,10 +65,3 @@ Documentar la API MUST NOT modificar rutas, cuerpos, códigos de estado ni forma
 #### Scenario: Contratos intactos
 - **WHEN** se invoca cualquier endpoint de productos, ventas o conversaciones con la documentación habilitada
 - **THEN** la ruta, el código de estado y el cuerpo de la respuesta son idénticos a los que se obtienen con la documentación deshabilitada
-
-### Requirement: Webhook de Telegram excluido
-La especificación MUST NOT incluir el endpoint `POST /telegram/webhook`, aunque esté activo porque el bot funciona en modo webhook.
-
-#### Scenario: Webhook activo pero no documentado
-- **WHEN** el bot de Telegram está habilitado en modo webhook, la documentación está habilitada y un cliente hace `GET /v3/api-docs`
-- **THEN** el documento no contiene la ruta `/telegram/webhook`

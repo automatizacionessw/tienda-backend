@@ -1,6 +1,7 @@
 package com.tiendabackend.tiendabackend.chatbot;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -39,8 +40,11 @@ class ChatbotServiceTest {
 
     private static final long TELEGRAM_USER_ID = 5551234567L;
     private static final long CLIENTE_ID = 42L;
+    private static final long CONVERSACION_ID = 7L;
 
     private ClienteService clienteService;
+    private ConversacionService conversacionService;
+    private Conversacion conversacion;
     private MensajeRepository mensajeRepository;
     private AdjuntoRepository adjuntoRepository;
     private AlmacenamientoArchivos almacenamiento;
@@ -55,6 +59,10 @@ class ChatbotServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         clienteService = mock(ClienteService.class);
+        conversacionService = mock(ConversacionService.class);
+        conversacion = Conversacion.abrir(CLIENTE_ID, Instant.ofEpochSecond(1790000000));
+        conversacion.setId(CONVERSACION_ID);
+        when(conversacionService.asignarEntrante(anyLong(), any(Instant.class))).thenReturn(conversacion);
         mensajeRepository = mock(MensajeRepository.class);
         adjuntoRepository = mock(AdjuntoRepository.class);
         almacenamiento = mock(AlmacenamientoArchivos.class);
@@ -89,7 +97,7 @@ class ChatbotServiceTest {
             return enviado;
         });
 
-        chatbotService = new ChatbotService(clienteService, mensajeRepository, adjuntoRepository,
+        chatbotService = new ChatbotService(clienteService, conversacionService, mensajeRepository, adjuntoRepository,
                 almacenamiento, new RespuestaFija(), telegramClient, transactionManager);
     }
 
@@ -281,6 +289,59 @@ class ChatbotServiceTest {
         assertThat(entrante().getTexto()).isEqualTo("hola");
         assertThat(salientes()).isEmpty();
         verify(telegramClient, times(1)).execute(any(SendMessage.class));
+    }
+
+    @Test
+    void entranteYSalienteQuedanEnLaConversacionAsignada() throws Exception {
+        chatbotService.procesar(mensajePrivado("\"text\": \"hola\""));
+
+        verify(conversacionService).asignarEntrante(CLIENTE_ID, Instant.ofEpochSecond(1790000000));
+        assertThat(entrante().getConversacion()).isSameAs(conversacion);
+        assertThat(salientes()).singleElement()
+                .satisfies(s -> assertThat(s.getConversacion()).isSameAs(conversacion));
+        verify(conversacionService).registrarSaliente(CONVERSACION_ID, Instant.ofEpochSecond(1790000010));
+    }
+
+    @Test
+    void mensajeYaProcesadoNoSeAsignaAConversacion() throws Exception {
+        when(mensajeRepository.existsByClienteIdAndTelegramMessageId(CLIENTE_ID, 10L)).thenReturn(true);
+
+        chatbotService.procesar(mensajePrivado("\"text\": \"hola\""));
+
+        verifyNoInteractions(conversacionService);
+    }
+
+    @Test
+    void reentregaConcurrenteNoRegistraActividadDeSaliente() throws Exception {
+        when(mensajeRepository.saveAndFlush(any(Mensaje.class)))
+                .thenThrow(new DataIntegrityViolationException("uk_mensaje_cliente_telegram_message"));
+
+        chatbotService.procesar(mensajePrivado("\"text\": \"hola\""));
+
+        verify(conversacionService, never()).registrarSaliente(anyLong(), any());
+        verifyNoInteractions(telegramClient);
+    }
+
+    // Si la asignacion falla aun tras su reintento, el error NO se confunde con
+    // una reentrega (que se descarta en silencio): se propaga y lo registra el
+    // adaptador de ingreso.
+    @Test
+    void colisionAlAsignarConversacionNoSeTrataComoReentrega() {
+        when(conversacionService.asignarEntrante(anyLong(), any(Instant.class)))
+                .thenThrow(new DataIntegrityViolationException("conversacion_cliente_abierta"));
+
+        assertThatThrownBy(() -> chatbotService.procesar(mensajePrivado("\"text\": \"hola\"")))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        verify(mensajeRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void falloAlEnviarNoRegistraActividadDeSaliente() throws Exception {
+        when(telegramClient.execute(any(SendMessage.class))).thenThrow(new TelegramApiException("Forbidden"));
+
+        chatbotService.procesar(mensajePrivado("\"text\": \"hola\""));
+
+        verify(conversacionService, never()).registrarSaliente(anyLong(), any());
     }
 
     @Test

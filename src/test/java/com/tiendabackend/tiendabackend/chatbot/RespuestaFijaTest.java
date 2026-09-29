@@ -12,7 +12,7 @@ class RespuestaFijaTest {
         RespuestaFija respuesta = new RespuestaFija();
 
         for (TipoMensaje tipo : TipoMensaje.values()) {
-            assertThat(respuesta.generar(new MensajeEntranteDTO(1L, 2L, tipo, "hola", Instant.now())))
+            assertThat(respuesta.generar(new MensajeEntranteDTO(1L, 2L, 3L, tipo, "hola", Instant.now())))
                     .isEqualTo("mensaje recibido");
         }
     }

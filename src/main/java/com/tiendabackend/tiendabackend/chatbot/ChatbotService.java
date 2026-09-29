@@ -36,6 +36,7 @@ public class ChatbotService {
     private static final String CATEGORIA_VOZ = "voz";
 
     private final ClienteService clienteService;
+    private final ConversacionService conversacionService;
     private final MensajeRepository mensajeRepository;
     private final AdjuntoRepository adjuntoRepository;
     private final AlmacenamientoArchivos almacenamiento;
@@ -44,6 +45,7 @@ public class ChatbotService {
     private final TransactionTemplate transactionTemplate;
 
     public ChatbotService(ClienteService clienteService,
+                          ConversacionService conversacionService,
                           MensajeRepository mensajeRepository,
                           AdjuntoRepository adjuntoRepository,
                           AlmacenamientoArchivos almacenamiento,
@@ -51,6 +53,7 @@ public class ChatbotService {
                           TelegramClient telegramClient,
                           PlatformTransactionManager transactionManager) {
         this.clienteService = clienteService;
+        this.conversacionService = conversacionService;
         this.mensajeRepository = mensajeRepository;
         this.adjuntoRepository = adjuntoRepository;
         this.almacenamiento = almacenamiento;
@@ -82,9 +85,15 @@ public class ChatbotService {
             return;
         }
 
+        // En su propia transaccion (con reintento) y ANTES de guardar el
+        // entrante: una colision al abrir la conversacion no debe confundirse
+        // con la de la UQ del mensaje, que se interpreta como reentrega.
+        Conversacion conversacion = conversacionService.asignarEntrante(
+                cliente.getId(), Instant.ofEpochSecond(message.getDate()));
+
         RegistroEntrante registro;
         try {
-            registro = transactionTemplate.execute(estado -> guardarEntrante(cliente, message));
+            registro = transactionTemplate.execute(estado -> guardarEntrante(cliente, conversacion, message));
         } catch (DataIntegrityViolationException reentregaConcurrente) {
             // Otra entrega del mismo mensaje gano la carrera entre la consulta
             // previa y el INSERT: la UQ lo detecta y esta se descarta.
@@ -100,11 +109,12 @@ public class ChatbotService {
         responder(cliente, registro.mensaje());
     }
 
-    private RegistroEntrante guardarEntrante(ClienteDTO cliente, Message message) {
+    private RegistroEntrante guardarEntrante(ClienteDTO cliente, Conversacion conversacion, Message message) {
         TipoMensaje tipo = clasificar(message);
 
         Mensaje mensaje = new Mensaje();
         mensaje.setClienteId(cliente.getId());
+        mensaje.setConversacion(conversacion);
         mensaje.setTelegramMessageId(message.getMessageId().longValue());
         mensaje.setDireccion(Direccion.ENTRANTE);
         mensaje.setTipo(tipo);
@@ -182,6 +192,8 @@ public class ChatbotService {
 
         Mensaje saliente = new Mensaje();
         saliente.setClienteId(cliente.getId());
+        // El saliente va a la conversacion del entrante que responde.
+        saliente.setConversacion(entrante.getConversacion());
         saliente.setTelegramMessageId(enviado.getMessageId().longValue());
         saliente.setDireccion(Direccion.SALIENTE);
         saliente.setTipo(TipoMensaje.TEXTO);
@@ -189,7 +201,10 @@ public class ChatbotService {
         saliente.setFechaTelegram(enviado.getDate() != null
                 ? Instant.ofEpochSecond(enviado.getDate()) : Instant.now());
         saliente.setFechaRegistro(Instant.now());
-        transactionTemplate.executeWithoutResult(estado -> mensajeRepository.save(saliente));
+        transactionTemplate.executeWithoutResult(estado -> {
+            mensajeRepository.save(saliente);
+            conversacionService.registrarSaliente(entrante.getConversacion().getId(), saliente.getFechaTelegram());
+        });
     }
 
     private static DatosClienteTelegram datosCliente(User from) {
