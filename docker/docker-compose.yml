@@ -1,4 +1,5 @@
 # Despliegue del backend + PostgreSQL + n8n con Dokploy (ver docker/README.md).
+# n8n es el unico servicio con dominio publico; el backend solo en la IP interna.
 # Las variables se leen de docker/.env, que en Dokploy escribe su UI a partir
 # de la pestana Environment. Plantilla: docker/.env.example.
 # Para desarrollo local se usa docker/local/docker-compose.yml.
@@ -40,9 +41,11 @@ services:
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
-    # Sin "ports": el dominio se asigna en Dokploy y Traefik enruta a backend:8080.
-    expose:
-      - "8080"
+    # Sin dominio publico: el backend se publica solo en la IP interna del
+    # servidor (BACKEND_BIND_IP). Sin esa variable, solo en 127.0.0.1.
+    # n8n lo alcanza por la red del compose en http://backend:8080.
+    ports:
+      - "${BACKEND_BIND_IP:-127.0.0.1}:${BACKEND_HOST_PORT:-8080}:8080"
     volumes:
       - archivos:/app/data/archivos
     healthcheck:
